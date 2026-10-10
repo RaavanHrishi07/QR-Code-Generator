@@ -1,5 +1,6 @@
+
 import tkinter as tk
-from tkinter import filedialog, messagebox, ttk
+from tkinter import colorchooser, filedialog, messagebox, ttk
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -8,42 +9,41 @@ from PIL import Image, ImageTk
 
 
 class QRCodeGenerator:
-    """Desktop application for generating QR codes from URLs."""
+    """Generate and save QR codes from website URLs."""
 
     def __init__(self, root):
         self.root = root
         self.root.title("QR Code Generator")
-        self.root.geometry("620x680")
-        self.root.minsize(520, 600)
+        self.root.geometry("640x760")
+        self.root.minsize(540, 680)
         self.root.configure(bg="#202124")
 
         self.qr_image = None
         self.preview_image = None
+        self.qr_color = "#000000"
+        self.background_color = "#FFFFFF"
 
         self._build_interface()
 
     def _build_interface(self):
-        header = tk.Frame(self.root, bg="#202124")
-        header.pack(fill="x", padx=25, pady=(25, 15))
-
         tk.Label(
-            header,
+            self.root,
             text="QR Code Generator",
             font=("Arial", 24, "bold"),
             fg="white",
             bg="#202124",
-        ).pack()
+        ).pack(pady=(22, 6))
 
         tk.Label(
-            header,
-            text="Turn any website URL into a scannable QR code",
+            self.root,
+            text="Create and customise your QR code",
             font=("Arial", 11),
             fg="#b8b8b8",
             bg="#202124",
-        ).pack(pady=(8, 0))
+        ).pack(pady=(0, 18))
 
         input_frame = tk.Frame(self.root, bg="#202124")
-        input_frame.pack(fill="x", padx=30, pady=10)
+        input_frame.pack(fill="x", padx=30)
 
         tk.Label(
             input_frame,
@@ -51,7 +51,7 @@ class QRCodeGenerator:
             font=("Arial", 11, "bold"),
             fg="white",
             bg="#202124",
-        ).pack(anchor="w", pady=(0, 8))
+        ).pack(anchor="w", pady=(0, 7))
 
         self.url_entry = tk.Entry(
             input_frame,
@@ -59,17 +59,42 @@ class QRCodeGenerator:
             relief="flat",
             bg="white",
             fg="#202124",
-            insertbackground="#202124",
         )
-        self.url_entry.pack(fill="x", ipady=10)
-        self.url_entry.bind("<Return>", lambda event: self.generate_qr())
+        self.url_entry.pack(fill="x", ipady=9)
+        self.url_entry.bind(
+            "<Return>", lambda event: self.generate_qr()
+        )
 
-        self.generate_button = ttk.Button(
-            input_frame,
+        colors_frame = tk.Frame(self.root, bg="#202124")
+        colors_frame.pack(fill="x", padx=30, pady=16)
+
+        self.qr_color_button = tk.Button(
+            colors_frame,
+            text="QR Colour: Black",
+            bg=self.qr_color,
+            fg="white",
+            command=self.choose_qr_color,
+        )
+        self.qr_color_button.pack(
+            side="left", fill="x", expand=True, padx=(0, 6), ipady=6
+        )
+
+        self.bg_color_button = tk.Button(
+            colors_frame,
+            text="Background: White",
+            bg=self.background_color,
+            fg="black",
+            command=self.choose_background_color,
+        )
+        self.bg_color_button.pack(
+            side="left", fill="x", expand=True, padx=(6, 0), ipady=6
+        )
+
+        ttk.Button(
+            self.root,
             text="Generate QR Code",
             command=self.generate_qr,
-        )
-        self.generate_button.pack(fill="x", pady=(12, 0), ipady=5)
+        ).pack(fill="x", padx=30, ipady=6)
 
         self.preview_frame = tk.Frame(
             self.root,
@@ -78,10 +103,7 @@ class QRCodeGenerator:
             highlightbackground="#555555",
         )
         self.preview_frame.pack(
-            fill="both",
-            expand=True,
-            padx=30,
-            pady=20,
+            fill="both", expand=True, padx=30, pady=18
         )
 
         self.preview_label = tk.Label(
@@ -91,7 +113,7 @@ class QRCodeGenerator:
             fg="#b8b8b8",
             bg="#303134",
         )
-        self.preview_label.pack(expand=True, padx=15, pady=15)
+        self.preview_label.pack(expand=True, padx=12, pady=12)
 
         self.save_button = ttk.Button(
             self.root,
@@ -99,7 +121,7 @@ class QRCodeGenerator:
             command=self.save_qr,
             state="disabled",
         )
-        self.save_button.pack(fill="x", padx=30, pady=(0, 12), ipady=5)
+        self.save_button.pack(fill="x", padx=30, pady=(0, 12), ipady=6)
 
         self.status_label = tk.Label(
             self.root,
@@ -112,10 +134,9 @@ class QRCodeGenerator:
 
     @staticmethod
     def validate_url(value):
-        """Validate that the input is an HTTP or HTTPS URL."""
         value = value.strip()
 
-        if not value:
+        if not value or " " in value:
             return False
 
         try:
@@ -124,10 +145,56 @@ class QRCodeGenerator:
                 parsed.scheme.lower() in ("http", "https")
                 and bool(parsed.hostname)
                 and "." in parsed.hostname
-                and " " not in value
             )
         except ValueError:
             return False
+
+    def choose_qr_color(self):
+        selected = colorchooser.askcolor(
+            color=self.qr_color,
+            title="Choose QR Code Colour",
+            parent=self.root,
+        )
+
+        if selected and selected[1]:
+            self.qr_color = selected[1].upper()
+            self.qr_color_button.config(
+                text=f"QR Colour: {self.qr_color}",
+                bg=self.qr_color,
+                fg=self._button_text_color(self.qr_color),
+            )
+            self._refresh_existing_qr()
+
+    def choose_background_color(self):
+        selected = colorchooser.askcolor(
+            color=self.background_color,
+            title="Choose Background Colour",
+            parent=self.root,
+        )
+
+        if selected and selected[1]:
+            self.background_color = selected[1].upper()
+            self.bg_color_button.config(
+                text=f"Background: {self.background_color}",
+                bg=self.background_color,
+                fg=self._button_text_color(self.background_color),
+            )
+            self._refresh_existing_qr()
+
+    @staticmethod
+    def _button_text_color(hex_color):
+        value = hex_color.lstrip("#")
+        red, green, blue = (
+            int(value[i:i + 2], 16) for i in (0, 2, 4)
+        )
+        brightness = (red * 299 + green * 587 + blue * 114) / 1000
+        return "black" if brightness > 150 else "white"
+
+    def _refresh_existing_qr(self):
+        if self.url_entry.get().strip() and self.validate_url(
+            self.url_entry.get()
+        ):
+            self.generate_qr()
 
     def generate_qr(self):
         url = self.url_entry.get().strip()
@@ -135,7 +202,9 @@ class QRCodeGenerator:
         if not self.validate_url(url):
             messagebox.showwarning(
                 "Invalid URL",
-                "Enter a valid website URL starting with http:// or https://.",
+                "Enter a valid website URL starting with "
+                "http:// or https://.",
+                parent=self.root,
             )
             self.status_label.config(text="Please enter a valid URL.")
             return
@@ -151,21 +220,20 @@ class QRCodeGenerator:
             qr.make(fit=True)
 
             self.qr_image = qr.make_image(
-                fill_color="black",
-                back_color="white",
+                fill_color=self.qr_color,
+                back_color=self.background_color,
             ).convert("RGB")
 
             preview = self.qr_image.copy()
-            preview.thumbnail((300, 300), Image.Resampling.LANCZOS)
+            preview.thumbnail((320, 320), Image.Resampling.LANCZOS)
 
             self.preview_image = ImageTk.PhotoImage(preview)
             self.preview_label.config(
                 image=self.preview_image,
                 text="",
-                bg="white",
+                bg=self.background_color,
             )
-            self.preview_frame.config(bg="white")
-
+            self.preview_frame.config(bg=self.background_color)
             self.save_button.config(state="normal")
             self.status_label.config(text="QR code generated successfully.")
 
@@ -179,10 +247,10 @@ class QRCodeGenerator:
             )
             self.preview_frame.config(bg="#303134")
             self.save_button.config(state="disabled")
-
             messagebox.showerror(
                 "Generation Error",
                 f"Unable to generate the QR code:\n{error}",
+                parent=self.root,
             )
 
     def save_qr(self):
@@ -190,6 +258,7 @@ class QRCodeGenerator:
             messagebox.showwarning(
                 "No QR Code",
                 "Generate a QR code before saving.",
+                parent=self.root,
             )
             return
 
@@ -204,24 +273,19 @@ class QRCodeGenerator:
             return
 
         try:
-            output_path = Path(destination)
-
-            if output_path.suffix.lower() != ".png":
-                output_path = output_path.with_suffix(".png")
-
+            output_path = Path(destination).with_suffix(".png")
             self.qr_image.save(output_path, format="PNG")
-            self.status_label.config(
-                text=f"Saved: {output_path.name}"
-            )
+            self.status_label.config(text=f"Saved: {output_path.name}")
             messagebox.showinfo(
                 "Saved Successfully",
                 f"QR code saved to:\n{output_path}",
+                parent=self.root,
             )
-
         except (OSError, ValueError) as error:
             messagebox.showerror(
                 "Save Error",
                 f"Unable to save the QR code:\n{error}",
+                parent=self.root,
             )
 
 
