@@ -9,13 +9,20 @@ from PIL import Image, ImageTk
 
 
 class QRCodeGenerator:
-    """Generate and save QR codes from website URLs."""
+    """Generate and customise QR codes from website URLs."""
+
+    ERROR_LEVELS = {
+        "Low (7%)": qrcode.constants.ERROR_CORRECT_L,
+        "Medium (15%)": qrcode.constants.ERROR_CORRECT_M,
+        "Quartile (25%)": qrcode.constants.ERROR_CORRECT_Q,
+        "High (30%)": qrcode.constants.ERROR_CORRECT_H,
+    }
 
     def __init__(self, root):
         self.root = root
         self.root.title("QR Code Generator")
-        self.root.geometry("640x760")
-        self.root.minsize(540, 680)
+        self.root.geometry("660x820")
+        self.root.minsize(560, 740)
         self.root.configure(bg="#202124")
 
         self.qr_image = None
@@ -32,15 +39,15 @@ class QRCodeGenerator:
             font=("Arial", 24, "bold"),
             fg="white",
             bg="#202124",
-        ).pack(pady=(22, 6))
+        ).pack(pady=(18, 5))
 
         tk.Label(
             self.root,
-            text="Create and customise your QR code",
+            text="Create and customise your QR codes",
             font=("Arial", 11),
             fg="#b8b8b8",
             bg="#202124",
-        ).pack(pady=(0, 18))
+        ).pack(pady=(0, 15))
 
         input_frame = tk.Frame(self.root, bg="#202124")
         input_frame.pack(fill="x", padx=30)
@@ -60,13 +67,13 @@ class QRCodeGenerator:
             bg="white",
             fg="#202124",
         )
-        self.url_entry.pack(fill="x", ipady=9)
+        self.url_entry.pack(fill="x", ipady=8)
         self.url_entry.bind(
             "<Return>", lambda event: self.generate_qr()
         )
 
         colors_frame = tk.Frame(self.root, bg="#202124")
-        colors_frame.pack(fill="x", padx=30, pady=16)
+        colors_frame.pack(fill="x", padx=30, pady=12)
 
         self.qr_color_button = tk.Button(
             colors_frame,
@@ -76,7 +83,7 @@ class QRCodeGenerator:
             command=self.choose_qr_color,
         )
         self.qr_color_button.pack(
-            side="left", fill="x", expand=True, padx=(0, 6), ipady=6
+            side="left", fill="x", expand=True, padx=(0, 5), ipady=5
         )
 
         self.bg_color_button = tk.Button(
@@ -87,8 +94,56 @@ class QRCodeGenerator:
             command=self.choose_background_color,
         )
         self.bg_color_button.pack(
-            side="left", fill="x", expand=True, padx=(6, 0), ipady=6
+            side="left", fill="x", expand=True, padx=(5, 0), ipady=5
         )
+
+        options_frame = tk.Frame(self.root, bg="#202124")
+        options_frame.pack(fill="x", padx=30, pady=(0, 12))
+
+        tk.Label(
+            options_frame,
+            text="QR Block Size",
+            font=("Arial", 10, "bold"),
+            fg="white",
+            bg="#202124",
+        ).grid(row=0, column=0, sticky="w", pady=(0, 5))
+
+        self.size_var = tk.IntVar(value=10)
+        self.size_slider = tk.Scale(
+            options_frame,
+            from_=5,
+            to=20,
+            orient="horizontal",
+            variable=self.size_var,
+            bg="#202124",
+            fg="white",
+            troughcolor="#555555",
+            highlightthickness=0,
+            activebackground="#8ab4f8",
+            length=220,
+        )
+        self.size_slider.grid(row=1, column=0, sticky="ew", padx=(0, 15))
+
+        tk.Label(
+            options_frame,
+            text="Error Correction",
+            font=("Arial", 10, "bold"),
+            fg="white",
+            bg="#202124",
+        ).grid(row=0, column=1, sticky="w", pady=(0, 5))
+
+        self.error_var = tk.StringVar(value="Medium (15%)")
+        self.error_combo = ttk.Combobox(
+            options_frame,
+            textvariable=self.error_var,
+            values=list(self.ERROR_LEVELS.keys()),
+            state="readonly",
+            width=18,
+        )
+        self.error_combo.grid(row=1, column=1, sticky="ew", ipady=4)
+
+        options_frame.columnconfigure(0, weight=1)
+        options_frame.columnconfigure(1, weight=1)
 
         ttk.Button(
             self.root,
@@ -103,7 +158,7 @@ class QRCodeGenerator:
             highlightbackground="#555555",
         )
         self.preview_frame.pack(
-            fill="both", expand=True, padx=30, pady=18
+            fill="both", expand=True, padx=30, pady=15
         )
 
         self.preview_label = tk.Label(
@@ -121,7 +176,7 @@ class QRCodeGenerator:
             command=self.save_qr,
             state="disabled",
         )
-        self.save_button.pack(fill="x", padx=30, pady=(0, 12), ipady=6)
+        self.save_button.pack(fill="x", padx=30, pady=(0, 10), ipady=6)
 
         self.status_label = tk.Label(
             self.root,
@@ -130,7 +185,7 @@ class QRCodeGenerator:
             fg="#b8b8b8",
             bg="#202124",
         )
-        self.status_label.pack(fill="x", padx=30, pady=(0, 18))
+        self.status_label.pack(fill="x", padx=30, pady=(0, 15))
 
     @staticmethod
     def validate_url(value):
@@ -148,6 +203,15 @@ class QRCodeGenerator:
             )
         except ValueError:
             return False
+
+    @staticmethod
+    def _button_text_color(hex_color):
+        value = hex_color.lstrip("#")
+        red, green, blue = (
+            int(value[i:i + 2], 16) for i in (0, 2, 4)
+        )
+        brightness = (red * 299 + green * 587 + blue * 114) / 1000
+        return "black" if brightness > 150 else "white"
 
     def choose_qr_color(self):
         selected = colorchooser.askcolor(
@@ -181,19 +245,9 @@ class QRCodeGenerator:
             )
             self._refresh_existing_qr()
 
-    @staticmethod
-    def _button_text_color(hex_color):
-        value = hex_color.lstrip("#")
-        red, green, blue = (
-            int(value[i:i + 2], 16) for i in (0, 2, 4)
-        )
-        brightness = (red * 299 + green * 587 + blue * 114) / 1000
-        return "black" if brightness > 150 else "white"
-
     def _refresh_existing_qr(self):
-        if self.url_entry.get().strip() and self.validate_url(
-            self.url_entry.get()
-        ):
+        url = self.url_entry.get().strip()
+        if url and self.validate_url(url):
             self.generate_qr()
 
     def generate_qr(self):
@@ -212,8 +266,8 @@ class QRCodeGenerator:
         try:
             qr = qrcode.QRCode(
                 version=None,
-                error_correction=qrcode.constants.ERROR_CORRECT_M,
-                box_size=10,
+                error_correction=self.ERROR_LEVELS[self.error_var.get()],
+                box_size=self.size_var.get(),
                 border=4,
             )
             qr.add_data(url)
@@ -235,7 +289,12 @@ class QRCodeGenerator:
             )
             self.preview_frame.config(bg=self.background_color)
             self.save_button.config(state="normal")
-            self.status_label.config(text="QR code generated successfully.")
+            self.status_label.config(
+                text=(
+                    f"QR generated | Block size: {self.size_var.get()} | "
+                    f"Error correction: {self.error_var.get()}"
+                )
+            )
 
         except Exception as error:
             self.qr_image = None
